@@ -9,106 +9,87 @@ interface MessageItemProps {
   theme: "light" | "dark";
 }
 
-// Theme classes for message styling
-const MESSAGE_THEME_CLASSES = {
+const themeStyles = {
   light: {
     user: "bg-blue-600 text-white",
     bot: "bg-gray-100 text-gray-900",
-    container: "text-gray-700",
+    text: "text-gray-700",
+    loading: "bg-gray-200",
   },
   dark: {
     user: "bg-blue-600 text-white",
     bot: "bg-gray-700 text-gray-100",
-    container: "text-gray-300",
+    text: "text-gray-300",
+    loading: "bg-gray-600",
   },
 } as const;
 
 export const MessageItem: React.FC<MessageItemProps> = memo(
   ({ message, theme }) => {
     const isUser = message.sender === "user";
+    const t = themeStyles[theme];
 
-    const formatTime = (date: Date) => {
-      return date.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    };
+    const formatTime = (date: Date) =>
+      date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     return (
       <motion.div
-        className={`flex ${isUser ? "justify-end" : "justify-start"} mb-0.5`}
-        initial={{ opacity: 0, y: 20 }}
+        className={`flex ${isUser ? "justify-end" : "justify-start"} mb-1`}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        role="article"
-        aria-label={`${
-          isUser ? "Your message" : "Assistant message"
-        } at ${formatTime(message.timestamp)}`}
+        transition={{ duration: 0.25 }}
       >
         <div
-          className={`max-w-[90%] xs:max-w-[85%] sm:max-w-[80%] md:max-w-[78%] lg:max-w-[75%] xl:max-w-[70%] 2xl:max-w-[68%] 3xl:max-w-[65%] ${
-            isUser ? "order-2" : "order-1"
+          className={`flex flex-col gap-1 max-w-[min(85%,650px)] ${
+            isUser ? "items-end" : "items-start"
           }`}
         >
           <div
             className={`
-            px-1.5 py-1 rounded-md shadow-sm
-            ${isUser ? "rounded-br-sm" : "rounded-bl-sm"}
-            ${MESSAGE_THEME_CLASSES[theme][isUser ? "user" : "bot"]}
-          `}
+              px-3 py-2 rounded-2xl shadow-sm overflow-hidden
+              ${isUser ? `${t.user} rounded-br-md` : `${t.bot} rounded-bl-md`}
+            `}
           >
-            {isUser ? (
-              <div className="whitespace-pre-wrap break-words text-sm">
+            {message.isLoading ? (
+              <div className={`flex items-center gap-1`}>
+                {[0, 1, 2].map((i) => (
+                  <motion.span
+                    key={i}
+                    className={`w-2 h-2 rounded-full ${t.loading}`}
+                    animate={{
+                      opacity: [0.2, 1, 0.2],
+                    }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      delay: i * 0.2,
+                    }}
+                  />
+                ))}
+              </div>
+            ) : isUser ? (
+              <p className="whitespace-pre-wrap break-words break-all text-sm leading-relaxed">
                 {message.content}
-              </div>
+              </p>
             ) : (
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  className={`${MESSAGE_THEME_CLASSES[theme].container} prose-headings:text-gray-900 prose-p:text-gray-700 prose-code:text-gray-800 prose-pre:bg-gray-100`}
-                >
-                  {message.content}
-                </ReactMarkdown>
-              </div>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                className={`prose prose-sm max-w-none break-words break-all overflow-x-hidden ${
+                  theme === "dark" ? "prose-invert" : ""
+                }`}
+              >
+                {message.content}
+              </ReactMarkdown>
             )}
           </div>
 
-          {message.files && message.files.length > 0 && (
-            <div
-              className={`mt-2 flex flex-wrap gap-1 ${
-                isUser ? "justify-end" : "justify-start"
-              }`}
-            >
-              {message.files.map((file) => (
-                <div
-                  key={file.id}
-                  className={`
-                  flex items-center gap-1 px-2 py-1 rounded text-xs font-medium
-                  ${
-                    isUser
-                      ? "bg-blue-500 bg-opacity-20 text-blue-100 border border-blue-400 border-opacity-30"
-                      : "bg-gray-100 text-gray-700 border border-gray-200"
-                  }
-                `}
-                  role="img"
-                  aria-label={`Attached file: ${file.name}`}
-                >
-                  <span className="text-xs" aria-hidden="true">
-                    📎
-                  </span>
-                  <span className="truncate max-w-24">{file.name}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div
-            className={`text-xs mt-0 opacity-60 ${
-              MESSAGE_THEME_CLASSES[theme].container
-            } ${isUser ? "text-right" : "text-left"}`}
+          <span
+            className={`text-[10px] opacity-60 ${t.text} ${
+              isUser ? "text-right" : "text-left"
+            }`}
           >
             {formatTime(message.timestamp)}
-          </div>
+          </span>
         </div>
       </motion.div>
     );
