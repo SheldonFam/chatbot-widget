@@ -1,163 +1,64 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { Message, MessageFeedback, ChatState, ChatActions } from "../types";
+import { devtools, persist } from "zustand/middleware";
+import { createMessageSlice, MessageSlice } from "./slices/messageSlice";
+import { createFeedbackSlice, FeedbackSlice } from "./slices/feedbackSlice";
+import { createUISlice, UISlice } from "./slices/uiSlice";
+import { createUploadSlice, UploadSlice } from "./slices/uploadSlice";
+
+export type ChatStore = MessageSlice & FeedbackSlice & UISlice & UploadSlice;
 
 const STORAGE_KEY = "chatbot-widget-storage";
 
-interface ChatStore extends ChatState, ChatActions {}
+function isObject(value: unknown): value is Record<string, any> {
+  return typeof value === "object" && value !== null;
+}
+
+function mergePersistedState(
+  persistedState: unknown,
+  currentState: ChatStore
+): ChatStore {
+  if (!isObject(persistedState)) return currentState;
+
+  const merged = {
+    ...currentState,
+    ...(persistedState as Partial<ChatStore>),
+  };
+
+  if (merged.messages) {
+    merged.messages = merged.messages.map((msg: any) => ({
+      ...msg,
+      timestamp: new Date(msg.timestamp),
+    }));
+  }
+
+  if (merged.chatFeedback?.submittedAt) {
+    merged.chatFeedback.submittedAt = new Date(merged.chatFeedback.submittedAt);
+  }
+
+  return merged;
+}
 
 export const useChatStore = create<ChatStore>()(
-  persist(
-    (set, get) => ({
-      // Initial state
-      messages: [],
-      feedback: [],
-      isOpen: false,
-      isMinimized: false,
-      isFullWidth: false,
-      isFeedbackModalOpen: false,
-      chatFeedback: null,
-      uploadedFiles: [],
-
-      // Actions
-      addMessage: (messageData) => {
-        const newMessage: Message = {
-          ...messageData,
-          id: crypto.randomUUID(),
-          timestamp: new Date(),
-        };
-
-        set((state) => ({
-          messages: [...state.messages, newMessage],
-        }));
-
-        // Auto-save to storage
-        get().saveToStorage();
-      },
-
-      updateMessageFeedback: (messageId, feedbackType) => {
-        set((state) => {
-          const existingFeedbackIndex = state.feedback.findIndex(
-            (f) => f.messageId === messageId
-          );
-
-          let newFeedback: MessageFeedback[] = [...state.feedback];
-
-          if (existingFeedbackIndex >= 0) {
-            if (feedbackType === null) {
-              // Remove feedback
-              newFeedback.splice(existingFeedbackIndex, 1);
-            } else {
-              // Update existing feedback
-              newFeedback[existingFeedbackIndex] = {
-                messageId,
-                type: feedbackType,
-              };
-            }
-          } else if (feedbackType !== null) {
-            // Add new feedback
-            newFeedback.push({
-              messageId,
-              type: feedbackType,
-            });
-          }
-
-          return { feedback: newFeedback };
-        });
-
-        // Auto-save to storage
-        get().saveToStorage();
-      },
-
-      toggleChat: () => {
-        set((state) => ({
-          isOpen: !state.isOpen,
-          isMinimized: false,
-        }));
-      },
-
-      minimizeChat: () => {
-        set({ isMinimized: true });
-      },
-
-      toggleFullWidth: () => {
-        set((state) => ({ isFullWidth: !state.isFullWidth }));
-      },
-
-      openFeedbackModal: () => {
-        set({ isFeedbackModalOpen: true });
-      },
-
-      closeFeedbackModal: () => {
-        set({ isFeedbackModalOpen: false });
-      },
-
-      setUploadedFiles: (files) => {
-        set({ uploadedFiles: files });
-      },
-
-      clearUploadedFiles: () => {
-        set({ uploadedFiles: [] });
-      },
-
-      submitChatFeedback: (feedback) => {
-        set({ chatFeedback: feedback });
-        get().saveToStorage();
-      },
-
-      loadFromStorage: () => {
-        try {
-          const stored = localStorage.getItem(STORAGE_KEY);
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            // Convert timestamp strings back to Date objects
-            const messages = parsed.state.messages.map((msg: any) => ({
-              ...msg,
-              timestamp: new Date(msg.timestamp),
-            }));
-
-            set({
-              messages,
-              feedback: parsed.state.feedback || [],
-              chatFeedback: parsed.state.chatFeedback
-                ? {
-                    ...parsed.state.chatFeedback,
-                    submittedAt: new Date(
-                      parsed.state.chatFeedback.submittedAt
-                    ),
-                  }
-                : null,
-            });
-          }
-        } catch (error) {
-          console.error("Failed to load chat data from storage:", error);
-        }
-      },
-
-      saveToStorage: () => {
-        try {
-          const state = get();
-          const dataToStore = {
-            state: {
-              messages: state.messages,
-              feedback: state.feedback,
-              chatFeedback: state.chatFeedback,
-            },
-            version: 1,
-          };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToStore));
-        } catch (error) {
-          console.error("Failed to save chat data to storage:", error);
-        }
-      },
-    }),
-    {
-      name: STORAGE_KEY,
-      partialize: (state) => ({
-        messages: state.messages,
-        feedback: state.feedback,
-        chatFeedback: state.chatFeedback,
+  devtools(
+    persist(
+      (set, get, store) => ({
+        ...createMessageSlice(set, get, store),
+        ...createFeedbackSlice(set, get, store),
+        ...createUISlice(set, get, store),
+        ...createUploadSlice(set, get, store),
       }),
-    }
+      {
+        name: STORAGE_KEY,
+        version: 1,
+        merge: mergePersistedState,
+        migrate: (persistedState, _version) => persistedState as ChatStore, // ✅ prevent warning
+        partialize: (state) => ({
+          messages: state.messages,
+          feedback: state.feedback,
+          chatFeedback: state.chatFeedback,
+        }),
+      }
+    ),
+    { name: "ChatStore" }
   )
 );

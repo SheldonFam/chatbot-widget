@@ -4,6 +4,7 @@ export interface Message {
   sender: "user" | "bot";
   timestamp: Date;
   files?: UploadedFile[];
+  isLoading?: boolean;
 }
 
 export interface UploadedFile {
@@ -44,7 +45,8 @@ export interface ChatState {
 }
 
 export interface ChatActions {
-  addMessage: (message: Omit<Message, "id" | "timestamp">) => void;
+  addMessage: (message: Omit<Message, "id" | "timestamp">) => string;
+  updateMessage: (id: string, updates: Partial<Message>) => void;
   updateMessageFeedback: (
     messageId: string,
     feedback: "upvote" | "downvote" | null

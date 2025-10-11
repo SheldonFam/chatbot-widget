@@ -30,14 +30,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     toggleFullWidth,
     openFeedbackModal,
     closeFeedbackModal,
-    loadFromStorage,
   } = useChatStore();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatWindowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setIsMounted(true), []);
-  useEffect(() => loadFromStorage(), [loadFromStorage]);
 
   // Disable body scroll when chat open
   useEffect(() => {
