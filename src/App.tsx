@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { ChatbotWidget } from "./components/ChatbotWidget";
 import { ChatbotWidgetProps } from "./types";
 
@@ -16,7 +16,9 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen ${themeClasses[widgetConfig.theme]}`}>
+    <div
+      className={`min-h-screen ${themeClasses[widgetConfig.theme || "light"]}`}
+    >
       {/* Demo Page Content */}
       <div className="container mx-auto px-6 py-12">
         <div className="max-w-4xl mx-auto">

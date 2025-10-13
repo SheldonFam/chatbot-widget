@@ -1,9 +1,11 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
 import { Send, X } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import { FileUpload } from "./FileUpload";
+import { sendChatMessage } from "../services/chatService";
+// import { streamChatMessage } from "../services/chatService"; // Uncomment when using streaming
 
 interface MessageInputProps {
   theme: "light" | "dark";
@@ -42,6 +44,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const {
     addMessage,
     updateMessage,
+    messages,
     uploadedFiles,
     setUploadedFiles,
     clearUploadedFiles,
@@ -50,8 +53,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const { register, handleSubmit, reset, watch } = useForm<FormData>();
   const messageValue = watch("message", "");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const canSend = messageValue.trim().length > 0 || uploadedFiles.length > 0;
+  const canSend =
+    (messageValue.trim().length > 0 || uploadedFiles.length > 0) &&
+    !isProcessing;
 
   /** 🧩 Resize dynamically when value changes */
   useEffect(() => {
@@ -66,10 +72,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     setUploadedFiles(uploadedFiles.filter((file) => file.id !== fileId));
   };
 
-  /** 💬 Submit logic */
-  const onSubmit = (data: FormData) => {
+  /** 💬 Submit logic - Now with real AI! */
+  const onSubmit = async (data: FormData) => {
     if (!data.message.trim() && uploadedFiles.length === 0) return;
+    if (isProcessing) return;
 
+    setIsProcessing(true);
+
+    // Add user message
     addMessage({
       content: data.message.trim() || "📎 File(s) shared",
       sender: "user",
@@ -77,7 +87,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     });
 
     const userMsg = data.message.trim();
-    const fileCount = uploadedFiles.length;
 
     reset();
     clearUploadedFiles();
@@ -89,20 +98,62 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       isLoading: true,
     });
 
-    // Demo bot reply - update the loading message after delay
-    setTimeout(() => {
-      let response = "";
+    try {
+      // Get conversation history (last 10 messages for context)
+      const conversationHistory = messages.slice(-10);
 
-      if (userMsg && fileCount > 0)
-        response = `Thanks for your message: "${userMsg}"\n\nYou uploaded ${fileCount} file(s).`;
-      else if (userMsg) response = `Thanks for your message: "${userMsg}"`;
-      else response = `I see you've uploaded ${fileCount} file(s).`;
+      // Option 1: Regular API call (uncomment to use)
+      const response = await sendChatMessage(userMsg, conversationHistory);
 
+      if (response.success) {
+        updateMessage(loadingMessageId, {
+          content: response.response,
+          isLoading: false,
+        });
+      } else {
+        updateMessage(loadingMessageId, {
+          content: `Sorry, I encountered an error: ${response.error}`,
+          isLoading: false,
+        });
+      }
+
+      // Option 2: Streaming response (comment out Option 1 and uncomment this to use)
+      /*
+      let fullResponse = "";
+      
+      await streamChatMessage(
+        userMsg,
+        conversationHistory,
+        // On each chunk received
+        (chunk) => {
+          fullResponse += chunk;
+          updateMessage(loadingMessageId, {
+            content: fullResponse,
+            isLoading: false,
+          });
+        },
+        // On complete
+        () => {
+          console.log("Streaming complete");
+        },
+        // On error
+        (error) => {
+          updateMessage(loadingMessageId, {
+            content: `Sorry, I encountered an error: ${error}`,
+            isLoading: false,
+          });
+        }
+      );
+      */
+    } catch (error) {
+      console.error("Chat error:", error);
       updateMessage(loadingMessageId, {
-        content: `${response}\n\n(This is a demo response from your AI backend.)`,
+        content: "Sorry, I couldn't process your message. Please try again.",
         isLoading: false,
       });
-    }, 1000);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   /** ⌨️ Enter to send */

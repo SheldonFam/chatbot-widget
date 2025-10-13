@@ -2,9 +2,10 @@ export interface Message {
   id: string;
   content: string;
   sender: "user" | "bot";
-  timestamp: Date;
+  timestamp: number; // Keep as number for consistency with shared types
   files?: UploadedFile[];
   isLoading?: boolean;
+  feedback?: "positive" | "negative" | null;
 }
 
 export interface UploadedFile {
@@ -13,6 +14,7 @@ export interface UploadedFile {
   size: number;
   type: string;
   url?: string; // For preview purposes
+  content?: string | ArrayBuffer; // From shared types
 }
 
 export interface MessageFeedback {
@@ -61,4 +63,50 @@ export interface ChatActions {
   submitChatFeedback: (feedback: ChatFeedback) => void;
   loadFromStorage: () => void;
   saveToStorage: () => void;
+}
+
+// ============================================
+// Message Types
+// ============================================
+
+export type MessageSender = "user" | "bot";
+
+export interface Message {
+  id: string;
+  content: string;
+  sender: MessageSender;
+  timestamp: number;
+  feedback?: "positive" | "negative" | null;
+  isStreaming?: boolean;
+}
+
+// ============================================
+// API Request/Response Types
+// ============================================
+
+export interface ChatRequest {
+  message: string;
+  conversationHistory?: Message[];
+}
+
+export interface ChatResponse {
+  success: boolean;
+  response: string;
+  error?: string;
+  details?: string;
+}
+
+export interface StreamChunk {
+  content?: string;
+  error?: string;
+}
+
+// ============================================
+// Health Check
+// ============================================
+
+export interface HealthResponse {
+  status: "ok" | "error";
+  message: string;
+  timestamp?: number;
 }
