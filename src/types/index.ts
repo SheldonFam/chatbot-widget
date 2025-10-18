@@ -1,10 +1,17 @@
+// ============================================
+// Message Types
+// ============================================
+
+export type MessageSender = "user" | "bot";
+
 export interface Message {
   id: string;
   content: string;
-  sender: "user" | "bot";
-  timestamp: number; // Keep as number for consistency with shared types
+  sender: MessageSender;
+  timestamp: number; // Unix timestamp in milliseconds
   files?: UploadedFile[];
   isLoading?: boolean;
+  isStreaming?: boolean;
   feedback?: "positive" | "negative" | null;
 }
 
@@ -14,7 +21,7 @@ export interface UploadedFile {
   size: number;
   type: string;
   url?: string; // For preview purposes
-  content?: string | ArrayBuffer; // From shared types
+  content?: string | ArrayBuffer; // For file content
 }
 
 export interface MessageFeedback {
@@ -27,6 +34,10 @@ export interface ChatFeedback {
   comment: string;
   submittedAt: Date;
 }
+
+// ============================================
+// Widget Configuration
+// ============================================
 
 export interface ChatbotWidgetProps {
   botName?: string;
@@ -63,21 +74,6 @@ export interface ChatActions {
   submitChatFeedback: (feedback: ChatFeedback) => void;
   loadFromStorage: () => void;
   saveToStorage: () => void;
-}
-
-// ============================================
-// Message Types
-// ============================================
-
-export type MessageSender = "user" | "bot";
-
-export interface Message {
-  id: string;
-  content: string;
-  sender: MessageSender;
-  timestamp: number;
-  feedback?: "positive" | "negative" | null;
-  isStreaming?: boolean;
 }
 
 // ============================================

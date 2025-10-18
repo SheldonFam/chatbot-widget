@@ -101,10 +101,11 @@ function App() {
             <h2 className="text-xl font-semibold mb-6">Widget Configuration</h2>
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label htmlFor="bot-name" className="block text-sm font-medium mb-2">
                   Bot Name
                 </label>
                 <input
+                  id="bot-name"
                   type="text"
                   value={widgetConfig.botName}
                   onChange={(e) =>
@@ -118,8 +119,9 @@ function App() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Theme</label>
+                <label htmlFor="theme" className="block text-sm font-medium mb-2">Theme</label>
                 <select
+                  id="theme"
                   value={widgetConfig.theme}
                   onChange={(e) =>
                     setWidgetConfig((prev) => ({
@@ -135,10 +137,11 @@ function App() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label htmlFor="position" className="block text-sm font-medium mb-2">
                   Position
                 </label>
                 <select
+                  id="position"
                   value={widgetConfig.position}
                   onChange={(e) =>
                     setWidgetConfig((prev) => ({
