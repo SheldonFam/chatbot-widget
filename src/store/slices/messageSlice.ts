@@ -20,7 +20,7 @@ export const createMessageSlice: StateCreator<
     const newMessage: Message = {
       ...messageData,
       id: crypto.randomUUID(),
-      timestamp: new Date(),
+      timestamp: Date.now(),
     };
 
     set((state) => ({

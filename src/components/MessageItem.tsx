@@ -29,8 +29,11 @@ export const MessageItem: React.FC<MessageItemProps> = memo(
     const isUser = message.sender === "user";
     const t = themeStyles[theme];
 
-    const formatTime = (date: Date) =>
-      date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const formatTime = (timestamp: number) =>
+      new Date(timestamp).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
 
     return (
       <motion.div

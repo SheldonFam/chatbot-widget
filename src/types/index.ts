@@ -1,10 +1,18 @@
+// ============================================
+// Message Types
+// ============================================
+
+export type MessageSender = "user" | "bot";
+
 export interface Message {
   id: string;
   content: string;
-  sender: "user" | "bot";
-  timestamp: Date;
+  sender: MessageSender;
+  timestamp: number; // Unix timestamp in milliseconds
   files?: UploadedFile[];
   isLoading?: boolean;
+  isStreaming?: boolean;
+  feedback?: "positive" | "negative" | null;
 }
 
 export interface UploadedFile {
@@ -13,6 +21,7 @@ export interface UploadedFile {
   size: number;
   type: string;
   url?: string; // For preview purposes
+  content?: string | ArrayBuffer; // For file content
 }
 
 export interface MessageFeedback {
@@ -25,6 +34,10 @@ export interface ChatFeedback {
   comment: string;
   submittedAt: Date;
 }
+
+// ============================================
+// Widget Configuration
+// ============================================
 
 export interface ChatbotWidgetProps {
   botName?: string;
@@ -61,4 +74,35 @@ export interface ChatActions {
   submitChatFeedback: (feedback: ChatFeedback) => void;
   loadFromStorage: () => void;
   saveToStorage: () => void;
+}
+
+// ============================================
+// API Request/Response Types
+// ============================================
+
+export interface ChatRequest {
+  message: string;
+  conversationHistory?: Message[];
+}
+
+export interface ChatResponse {
+  success: boolean;
+  response: string;
+  error?: string;
+  details?: string;
+}
+
+export interface StreamChunk {
+  content?: string;
+  error?: string;
+}
+
+// ============================================
+// Health Check
+// ============================================
+
+export interface HealthResponse {
+  status: "ok" | "error";
+  message: string;
+  timestamp?: number;
 }

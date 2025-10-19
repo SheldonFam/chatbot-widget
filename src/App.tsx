@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { ChatbotWidget } from "./components/ChatbotWidget";
 import { ChatbotWidgetProps } from "./types";
 
@@ -16,7 +16,9 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen ${themeClasses[widgetConfig.theme]}`}>
+    <div
+      className={`min-h-screen ${themeClasses[widgetConfig.theme || "light"]}`}
+    >
       {/* Demo Page Content */}
       <div className="container mx-auto px-6 py-12">
         <div className="max-w-4xl mx-auto">
@@ -99,10 +101,11 @@ function App() {
             <h2 className="text-xl font-semibold mb-6">Widget Configuration</h2>
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label htmlFor="bot-name" className="block text-sm font-medium mb-2">
                   Bot Name
                 </label>
                 <input
+                  id="bot-name"
                   type="text"
                   value={widgetConfig.botName}
                   onChange={(e) =>
@@ -116,8 +119,9 @@ function App() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Theme</label>
+                <label htmlFor="theme" className="block text-sm font-medium mb-2">Theme</label>
                 <select
+                  id="theme"
                   value={widgetConfig.theme}
                   onChange={(e) =>
                     setWidgetConfig((prev) => ({
@@ -133,10 +137,11 @@ function App() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label htmlFor="position" className="block text-sm font-medium mb-2">
                   Position
                 </label>
                 <select
+                  id="position"
                   value={widgetConfig.position}
                   onChange={(e) =>
                     setWidgetConfig((prev) => ({

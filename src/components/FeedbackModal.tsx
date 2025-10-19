@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { Star, X } from "lucide-react";
@@ -49,12 +49,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     setValue("rating", rating);
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     reset();
     setSelectedRating(0);
     setHoveredStar(0);
     onClose();
-  };
+  }, [reset, onClose]);
 
   const onSubmit = (data: FormData) => {
     if (!selectedRating) {
@@ -73,10 +73,14 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
   // Close modal on ESC
   useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && handleClose();
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleClose();
+      }
+    };
     if (isOpen) document.addEventListener("keydown", onEsc);
     return () => document.removeEventListener("keydown", onEsc);
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   const canSubmit = selectedRating > 0;
 
@@ -114,10 +118,14 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Rating */}
               <div>
-                <label className="block text-sm font-medium mb-3">
+                <span id="rating-label" className="block text-sm font-medium mb-3">
                   How would you rate your chat experience?
-                </label>
-                <div className="flex gap-2 justify-center sm:justify-start">
+                </span>
+                <div
+                  className="flex gap-2 justify-center sm:justify-start"
+                  role="group"
+                  aria-labelledby="rating-label"
+                >
                   {[1, 2, 3, 4, 5].map((star) => (
                     <motion.button
                       key={star}
@@ -128,6 +136,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                       onMouseEnter={() => setHoveredStar(star)}
                       onMouseLeave={() => setHoveredStar(0)}
                       className="p-2 focus:outline-none rounded-md focus:ring-2 focus:ring-yellow-400"
+                      aria-label={`Rate ${star} out of 5 stars`}
                     >
                       <Star
                         size={28}
@@ -148,10 +157,11 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
               {/* Comment */}
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label htmlFor="feedback-comment" className="block text-sm font-medium mb-2">
                   Additional comments (optional)
                 </label>
                 <textarea
+                  id="feedback-comment"
                   {...register("comment")}
                   placeholder="Tell us more about your experience..."
                   className={`w-full px-4 py-3 rounded-lg border resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${styles.input}`}

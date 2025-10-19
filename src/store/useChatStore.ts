@@ -9,7 +9,7 @@ export type ChatStore = MessageSlice & FeedbackSlice & UISlice & UploadSlice;
 
 const STORAGE_KEY = "chatbot-widget-storage";
 
-function isObject(value: unknown): value is Record<string, any> {
+function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
@@ -24,13 +24,18 @@ function mergePersistedState(
     ...(persistedState as Partial<ChatStore>),
   };
 
+  // Ensure timestamps are always numbers (milliseconds since epoch)
   if (merged.messages) {
-    merged.messages = merged.messages.map((msg: any) => ({
+    merged.messages = merged.messages.map((msg) => ({
       ...msg,
-      timestamp: new Date(msg.timestamp),
+      timestamp:
+        typeof msg.timestamp === "number"
+          ? msg.timestamp
+          : new Date(msg.timestamp as string | number | Date).valueOf(),
     }));
   }
 
+  // ChatFeedback.submittedAt should remain a Date object
   if (merged.chatFeedback?.submittedAt) {
     merged.chatFeedback.submittedAt = new Date(merged.chatFeedback.submittedAt);
   }
