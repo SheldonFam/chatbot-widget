@@ -3,8 +3,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Minus, Square, MessageSquare } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
-import { MessageItem } from "./MessageItem";
-import { FeedbackButtons } from "./FeedbackButtons";
+import { MessageWithFeedback } from "./MessageWithFeedback";
 import { MessageInput } from "./MessageInput";
 import { FeedbackModal } from "./FeedbackModal";
 import { ChatbotWidgetProps } from "../types";
@@ -40,6 +39,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   // Disable body scroll when chat open
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen]);
 
   // Scroll to bottom on new message
@@ -54,14 +56,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const themeStyles = {
     light: {
       container: "bg-white border-gray-200 shadow-2xl backdrop-blur-md",
-      header:
-        "bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200",
+      header: "bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200",
       messages: "bg-white",
     },
     dark: {
       container: "bg-gray-900 border-gray-700 shadow-2xl backdrop-blur-md",
-      header:
-        "bg-gradient-to-r from-gray-800 to-gray-700 border-b border-gray-600",
+      header: "bg-gradient-to-r from-gray-800 to-gray-700 border-b border-gray-600",
       messages: "bg-gray-900",
     },
   } as const;
@@ -93,14 +93,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           isFullWidth
             ? undefined
             : position === "bottom-right"
-            ? {
-                right: "max(1rem, env(safe-area-inset-right))",
-                bottom: "max(1rem, env(safe-area-inset-bottom))",
-              }
-            : {
-                left: "max(1rem, env(safe-area-inset-left))",
-                bottom: "max(1rem, env(safe-area-inset-bottom))",
-              }
+              ? {
+                  right: "max(1rem, env(safe-area-inset-right))",
+                  bottom: "max(1rem, env(safe-area-inset-bottom))",
+                }
+              : {
+                  left: "max(1rem, env(safe-area-inset-left))",
+                  bottom: "max(1rem, env(safe-area-inset-bottom))",
+                }
         }
       >
         {/* Header */}
@@ -158,20 +158,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   </div>
                   <h3 className="font-bold mb-1">Welcome!</h3>
                   <p className="text-xs opacity-70">
-                    Start chatting with {botName} — ask questions or upload
-                    files.
+                    Start chatting with {botName} — ask questions or upload files.
                   </p>
                 </div>
               ) : (
                 messages.map((msg) => (
-                  <div key={msg.id}>
-                    <MessageItem message={msg} theme={theme} />
-                    {msg.sender === "bot" && (
-                      <div className="ml-4">
-                        <FeedbackButtons messageId={msg.id} theme={theme} />
-                      </div>
-                    )}
-                  </div>
+                  <MessageWithFeedback key={msg.id} message={msg} theme={theme} />
                 ))
               )}
               <div ref={messagesEndRef} />
@@ -195,3 +187,4 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     document.body
   );
 };
+
