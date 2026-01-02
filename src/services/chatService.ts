@@ -51,7 +51,7 @@ export async function streamChatMessage(
   onError: (error: string) => void
 ): Promise<void> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
+    const response = await fetch(`${API_BASE_URL}/api/chat-stream`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
