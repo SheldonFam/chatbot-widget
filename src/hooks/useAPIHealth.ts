@@ -16,22 +16,24 @@ const HEALTH_CHECK_RETRY_DELAY = 5000; // 5 seconds for retry after failure
 export function useAPIHealth() {
   const { isOpen, apiHealthStatus, setAPIHealthStatus, setLastHealthCheck } =
     useChatStore();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const statusRef = useRef(apiHealthStatus);
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    statusRef.current = apiHealthStatus;
-  }, [apiHealthStatus]);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isCheckingRef = useRef(false); // More explicit than status comparison
 
   const performHealthCheck = useCallback(
     async (isRetry = false) => {
-      // Don't check if already checking (unless it's a retry)
-      if (statusRef.current === "checking" && !isRetry) {
+      // Prevent concurrent checks
+      if (isCheckingRef.current && !isRetry) {
         return;
       }
 
+      // Clear any pending retry
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+
+      isCheckingRef.current = true;
       setAPIHealthStatus("checking");
 
       try {
@@ -39,11 +41,8 @@ export function useAPIHealth() {
         setAPIHealthStatus(isHealthy ? "healthy" : "unhealthy");
         setLastHealthCheck(Date.now());
 
-        // If unhealthy, schedule a retry sooner
+        // Schedule retry if unhealthy
         if (!isHealthy) {
-          if (retryTimeoutRef.current) {
-            clearTimeout(retryTimeoutRef.current);
-          }
           retryTimeoutRef.current = setTimeout(() => {
             performHealthCheck(true);
           }, HEALTH_CHECK_RETRY_DELAY);
@@ -53,21 +52,25 @@ export function useAPIHealth() {
         setAPIHealthStatus("unhealthy");
         setLastHealthCheck(Date.now());
 
-        // Retry on error
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-        }
+        // Schedule retry on error
         retryTimeoutRef.current = setTimeout(() => {
           performHealthCheck(true);
         }, HEALTH_CHECK_RETRY_DELAY);
+      } finally {
+        isCheckingRef.current = false;
       }
     },
     [setAPIHealthStatus, setLastHealthCheck]
   );
 
+  // Separate effect to avoid recreating intervals
+  const performHealthCheckRef = useRef(performHealthCheck);
+  useEffect(() => {
+    performHealthCheckRef.current = performHealthCheck;
+  }, [performHealthCheck]);
+
   useEffect(() => {
     if (!isOpen) {
-      // Clear intervals when chat is closed
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -76,18 +79,18 @@ export function useAPIHealth() {
         clearTimeout(retryTimeoutRef.current);
         retryTimeoutRef.current = null;
       }
+      isCheckingRef.current = false;
       return;
     }
 
-    // Initial check when chat opens
-    performHealthCheck();
+    // Initial check
+    performHealthCheckRef.current();
 
-    // Set up periodic health checks
+    // Periodic checks
     intervalRef.current = setInterval(() => {
-      performHealthCheck();
+      performHealthCheckRef.current();
     }, HEALTH_CHECK_INTERVAL);
 
-    // Cleanup
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -95,13 +98,14 @@ export function useAPIHealth() {
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }
+      isCheckingRef.current = false;
     };
-  }, [isOpen, performHealthCheck]); // Include performHealthCheck in dependencies
+  }, [isOpen]); // Only depend on isOpen
 
   return {
     status: apiHealthStatus,
     isHealthy: apiHealthStatus === "healthy",
     isChecking: apiHealthStatus === "checking",
-    refresh: () => performHealthCheck(),
+    refresh: () => performHealthCheckRef.current(),
   };
 }
