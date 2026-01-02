@@ -21,14 +21,28 @@ const themeClasses = {
     modal: "bg-white text-gray-900 border border-gray-200 shadow-lg",
     input: "bg-white border-gray-300 text-gray-900 placeholder-gray-500",
     button: "bg-blue-600 hover:bg-blue-700 text-white",
+    buttonDisabled: "bg-gray-400 text-gray-600 cursor-not-allowed",
     buttonSecondary: "bg-gray-200 hover:bg-gray-300 text-gray-700",
+    closeButton: "hover:bg-gray-200/40",
+    closeButtonIcon: "text-gray-700",
+    headerText: "text-gray-900",
+    labelText: "text-gray-900",
+    starInactive: "text-gray-400",
+    ratingLabel: "text-gray-500",
   },
   dark: {
     overlay: "bg-black/60",
     modal: "bg-gray-800 text-gray-100 border border-gray-700 shadow-lg",
     input: "bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400",
     button: "bg-blue-600 hover:bg-blue-700 text-white",
+    buttonDisabled: "bg-gray-600 text-gray-400 cursor-not-allowed",
     buttonSecondary: "bg-gray-600 hover:bg-gray-500 text-gray-200",
+    closeButton: "hover:bg-gray-700/60",
+    closeButtonIcon: "text-gray-300",
+    headerText: "text-gray-100",
+    labelText: "text-gray-100",
+    starInactive: "text-gray-500",
+    ratingLabel: "text-gray-400",
   },
 } as const;
 
@@ -104,13 +118,15 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold">Rate Your Experience</h3>
+              <h3 className={`text-xl font-semibold ${styles.headerText}`}>
+                Rate Your Experience
+              </h3>
               <button
                 onClick={handleClose}
                 aria-label="Close"
-                className="p-2 rounded-full hover:bg-gray-200/40 dark:hover:bg-gray-700/60 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`p-2 rounded-full ${styles.closeButton} focus:outline-none focus:ring-2 focus:ring-blue-500`}
               >
-                <X size={18} />
+                <X size={18} className={styles.closeButtonIcon} />
               </button>
             </div>
 
@@ -118,7 +134,10 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Rating */}
               <div>
-                <span id="rating-label" className="block text-sm font-medium mb-3">
+                <span
+                  id="rating-label"
+                  className={`block text-sm font-medium mb-3 ${styles.labelText}`}
+                >
                   How would you rate your chat experience?
                 </span>
                 <div
@@ -143,13 +162,15 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                         className={
                           star <= (hoveredStar || selectedRating)
                             ? "text-yellow-400 fill-yellow-400"
-                            : "text-gray-400"
+                            : styles.starInactive
                         }
                       />
                     </motion.button>
                   ))}
                 </div>
-                <div className="flex justify-between text-xs text-gray-500 mt-2">
+                <div
+                  className={`flex justify-between text-xs ${styles.ratingLabel} mt-2`}
+                >
                   <span>Poor</span>
                   <span>Excellent</span>
                 </div>
@@ -157,7 +178,10 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
               {/* Comment */}
               <div>
-                <label htmlFor="feedback-comment" className="block text-sm font-medium mb-2">
+                <label
+                  htmlFor="feedback-comment"
+                  className={`block text-sm font-medium mb-2 ${styles.labelText}`}
+                >
                   Additional comments (optional)
                 </label>
                 <textarea
@@ -184,9 +208,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                   whileHover={canSubmit ? { scale: 1.03 } : {}}
                   whileTap={canSubmit ? { scale: 0.97 } : {}}
                   className={`flex-1 rounded-lg py-2.5 transition-colors ${
-                    canSubmit
-                      ? styles.button
-                      : "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    canSubmit ? styles.button : styles.buttonDisabled
                   }`}
                 >
                   Submit Feedback

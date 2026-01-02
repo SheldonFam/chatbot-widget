@@ -4,8 +4,8 @@ import { motion } from "framer-motion";
 import { Send, X } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import { FileUpload } from "./FileUpload";
-import { sendChatMessage } from "../services/chatService";
-// import { streamChatMessage } from "../services/chatService"; // Uncomment when using streaming
+import { streamChatMessage } from "../services/chatService";
+import { useAPIHealth } from "../hooks/useAPIHealth";
 
 interface MessageInputProps {
   theme: "light" | "dark";
@@ -18,22 +18,24 @@ interface FormData {
 
 const THEME_CLASSES = {
   light: {
-    container:
-      "bg-gradient-to-r from-gray-50 to-white border-t border-gray-200",
+    container: "bg-gradient-to-r from-gray-50 to-white border-t border-gray-200",
     input:
       "bg-white text-gray-900 placeholder-gray-500 border-gray-200 focus:border-blue-500",
     button:
       "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl",
     buttonDisabled: "bg-gray-300 text-gray-500",
+    fileRemoveButton: "hover:bg-gray-200 hover:bg-opacity-50",
+    fileRemoveIcon: "text-gray-600",
   },
   dark: {
-    container:
-      "bg-gradient-to-r from-gray-800 to-gray-700 border-t border-gray-600",
+    container: "bg-gradient-to-r from-gray-800 to-gray-700 border-t border-gray-600",
     input:
       "bg-gray-800 text-gray-100 placeholder-gray-400 border-gray-600 focus:border-blue-400",
     button:
       "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl",
     buttonDisabled: "bg-gray-600 text-gray-400",
+    fileRemoveButton: "hover:bg-gray-600 hover:bg-opacity-50",
+    fileRemoveIcon: "text-gray-300",
   },
 } as const;
 
@@ -50,6 +52,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     clearUploadedFiles,
   } = useChatStore();
 
+  // Check API health status
+  const { isHealthy, isChecking } = useAPIHealth();
+
   const { register, handleSubmit, reset, watch } = useForm<FormData>();
   const messageValue = watch("message", "");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -57,7 +62,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const canSend =
     (messageValue.trim().length > 0 || uploadedFiles.length > 0) &&
-    !isProcessing;
+    !isProcessing &&
+    isHealthy &&
+    !isChecking;
 
   /** 🧩 Resize dynamically when value changes */
   useEffect(() => {
@@ -102,25 +109,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       // Get conversation history (last 10 messages for context)
       const conversationHistory = messages.slice(-10);
 
-      // Option 1: Regular API call (uncomment to use)
-      const response = await sendChatMessage(userMsg, conversationHistory);
-
-      if (response.success) {
-        updateMessage(loadingMessageId, {
-          content: response.response,
-          isLoading: false,
-        });
-      } else {
-        updateMessage(loadingMessageId, {
-          content: `Sorry, I encountered an error: ${response.error}`,
-          isLoading: false,
-        });
-      }
-
-      // Option 2: Streaming response (comment out Option 1 and uncomment this to use)
-      /*
+      // Streaming response implementation
       let fullResponse = "";
-      
+
       await streamChatMessage(
         userMsg,
         conversationHistory,
@@ -134,24 +125,24 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         },
         // On complete
         () => {
-          console.log("Streaming complete");
+          setIsProcessing(false);
         },
         // On error
         (error) => {
+          console.error("Streaming error:", error);
           updateMessage(loadingMessageId, {
             content: `Sorry, I encountered an error: ${error}`,
             isLoading: false,
           });
+          setIsProcessing(false);
         }
       );
-      */
     } catch (error) {
       console.error("Chat error:", error);
       updateMessage(loadingMessageId, {
         content: "Sorry, I couldn't process your message. Please try again.",
         isLoading: false,
       });
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -171,10 +162,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
     >
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="flex flex-col gap-2 w-full"
-      >
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-2 w-full">
         {/* Uploaded Files */}
         {allowUpload && uploadedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 px-2">
@@ -191,9 +179,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 <button
                   type="button"
                   onClick={() => removeFile(file.id)}
-                  className="hover:bg-gray-500 hover:bg-opacity-20 rounded-full p-1"
+                  className={`rounded-full p-1 ${THEME_CLASSES[theme].fileRemoveButton}`}
                 >
-                  <X size={12} />
+                  <X size={12} className={THEME_CLASSES[theme].fileRemoveIcon} />
                 </button>
               </div>
             ))}
@@ -224,10 +212,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               textareaRef.current = e; // assign to ref
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder={
+              !isHealthy && !isChecking ? "Service unavailable..." : "Type a message..."
+            }
+            disabled={!isHealthy || isChecking}
             className={`flex-1 resize-none border-0 bg-transparent text-sm focus:outline-none leading-[1.5] py-[6px] ${
-              theme === "light" ? "text-gray-900" : "text-gray-100"
-            }`}
+              theme === "light"
+                ? "text-gray-900 placeholder-gray-500"
+                : "text-gray-100 placeholder-gray-400"
+            } ${!isHealthy && !isChecking ? "opacity-50 cursor-not-allowed" : ""}`}
             rows={1}
           />
 
@@ -235,9 +228,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             type="submit"
             disabled={!canSend}
             className={`p-2 rounded-md transition-all duration-200 flex items-center justify-center min-w-[36px] min-h-[36px] ${
-              canSend
-                ? THEME_CLASSES[theme].button
-                : THEME_CLASSES[theme].buttonDisabled
+              canSend ? THEME_CLASSES[theme].button : THEME_CLASSES[theme].buttonDisabled
             }`}
             whileHover={canSend ? { scale: 1.05, y: -1 } : {}}
             whileTap={canSend ? { scale: 0.95 } : {}}

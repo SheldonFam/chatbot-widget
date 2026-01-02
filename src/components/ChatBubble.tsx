@@ -14,8 +14,14 @@ const POSITION = {
 } as const;
 
 const THEME = {
-  light: "bg-blue-600 hover:bg-blue-700 text-white shadow-lg",
-  dark: "bg-gray-800 hover:bg-gray-700 text-white shadow-lg",
+  light: {
+    button: "bg-blue-600 hover:bg-blue-700 text-white shadow-lg",
+    pulse: "bg-blue-400",
+  },
+  dark: {
+    button: "bg-gray-800 hover:bg-gray-700 text-white shadow-lg",
+    pulse: "bg-blue-500",
+  },
 } as const;
 
 export const ChatBubble: React.FC<ChatBubbleProps> = ({ position, theme }) => {
@@ -28,7 +34,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ position, theme }) => {
       onClick={toggleChat}
       className={`
         fixed z-[9998] w-14 h-14 rounded-full flex items-center justify-center
-        ${POSITION[position]} ${THEME[theme]}
+        ${POSITION[position]} ${THEME[theme].button}
         transition-transform duration-300 focus:outline-none focus:ring-4 focus:ring-blue-300
       `}
       whileHover={{ scale: 1.1, rotate: 5 }}
@@ -51,7 +57,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ position, theme }) => {
       </motion.div>
 
       <motion.div
-        className="absolute inset-0 rounded-full bg-blue-400 opacity-30"
+        className={`absolute inset-0 rounded-full ${THEME[theme].pulse} opacity-30`}
         animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
         transition={{ duration: 2, repeat: Infinity }}
       />
