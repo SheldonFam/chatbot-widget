@@ -82,7 +82,7 @@ export interface ChatActions {
 
 export interface ChatRequest {
   message: string;
-  conversationHistory?: Message[];
+  history?: Message[];
 }
 
 export interface ChatResponse {
@@ -93,7 +93,9 @@ export interface ChatResponse {
 }
 
 export interface StreamChunk {
-  content?: string;
+  success?: boolean;
+  done?: boolean;
+  response?: string;
   error?: string;
 }
 

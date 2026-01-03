@@ -4,8 +4,7 @@ import { motion } from "framer-motion";
 import { Send, X } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import { FileUpload } from "./FileUpload";
-import { streamChatMessage } from "../services/chatService";
-import { useAPIHealth } from "../hooks/useAPIHealth";
+import { sendChatMessage } from "../services/chatService";
 
 interface MessageInputProps {
   theme: "light" | "dark";
@@ -24,8 +23,6 @@ const THEME_CLASSES = {
     button:
       "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl",
     buttonDisabled: "bg-gray-300 text-gray-500",
-    fileRemoveButton: "hover:bg-gray-200 hover:bg-opacity-50",
-    fileRemoveIcon: "text-gray-600",
   },
   dark: {
     container: "bg-gradient-to-r from-gray-800 to-gray-700 border-t border-gray-600",
@@ -34,8 +31,6 @@ const THEME_CLASSES = {
     button:
       "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl",
     buttonDisabled: "bg-gray-600 text-gray-400",
-    fileRemoveButton: "hover:bg-gray-600 hover:bg-opacity-50",
-    fileRemoveIcon: "text-gray-300",
   },
 } as const;
 
@@ -52,19 +47,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     clearUploadedFiles,
   } = useChatStore();
 
-  // Check API health status
-  const { isHealthy, isChecking } = useAPIHealth();
-
   const { register, handleSubmit, reset, watch } = useForm<FormData>();
   const messageValue = watch("message", "");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const canSend =
-    (messageValue.trim().length > 0 || uploadedFiles.length > 0) &&
-    !isProcessing &&
-    isHealthy &&
-    !isChecking;
+    (messageValue.trim().length > 0 || uploadedFiles.length > 0) && !isProcessing;
 
   /** 🧩 Resize dynamically when value changes */
   useEffect(() => {
@@ -109,40 +98,27 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       // Get conversation history (last 10 messages for context)
       const conversationHistory = messages.slice(-10);
 
-      // Streaming response implementation
-      let fullResponse = "";
+      // Send chat message and get response
+      const response = await sendChatMessage(userMsg, conversationHistory);
 
-      await streamChatMessage(
-        userMsg,
-        conversationHistory,
-        // On each chunk received
-        (chunk) => {
-          fullResponse += chunk;
-          updateMessage(loadingMessageId, {
-            content: fullResponse,
-            isLoading: false,
-          });
-        },
-        // On complete
-        () => {
-          setIsProcessing(false);
-        },
-        // On error
-        (error) => {
-          console.error("Streaming error:", error);
-          updateMessage(loadingMessageId, {
-            content: `Sorry, I encountered an error: ${error}`,
-            isLoading: false,
-          });
-          setIsProcessing(false);
-        }
-      );
+      if (response.success) {
+        updateMessage(loadingMessageId, {
+          content: response.response,
+          isLoading: false,
+        });
+      } else {
+        updateMessage(loadingMessageId, {
+          content: `Sorry, I encountered an error: ${response.error || "Unknown error"}`,
+          isLoading: false,
+        });
+      }
     } catch (error) {
       console.error("Chat error:", error);
       updateMessage(loadingMessageId, {
         content: "Sorry, I couldn't process your message. Please try again.",
         isLoading: false,
       });
+    } finally {
       setIsProcessing(false);
     }
   };
@@ -179,9 +155,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 <button
                   type="button"
                   onClick={() => removeFile(file.id)}
-                  className={`rounded-full p-1 ${THEME_CLASSES[theme].fileRemoveButton}`}
+                  className="hover:bg-gray-500 hover:bg-opacity-20 rounded-full p-1"
                 >
-                  <X size={12} className={THEME_CLASSES[theme].fileRemoveIcon} />
+                  <X size={12} />
                 </button>
               </div>
             ))}
@@ -212,15 +188,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               textareaRef.current = e; // assign to ref
             }}
             onKeyDown={handleKeyDown}
-            placeholder={
-              !isHealthy && !isChecking ? "Service unavailable..." : "Type a message..."
-            }
-            disabled={!isHealthy || isChecking}
+            placeholder="Type a message..."
             className={`flex-1 resize-none border-0 bg-transparent text-sm focus:outline-none leading-[1.5] py-[6px] ${
-              theme === "light"
-                ? "text-gray-900 placeholder-gray-500"
-                : "text-gray-100 placeholder-gray-400"
-            } ${!isHealthy && !isChecking ? "opacity-50 cursor-not-allowed" : ""}`}
+              theme === "light" ? "text-gray-900" : "text-gray-100"
+            }`}
             rows={1}
           />
 

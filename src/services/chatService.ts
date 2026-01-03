@@ -1,6 +1,34 @@
-import { Message, ChatResponse, StreamChunk, HealthResponse } from "../types";
+import { Message, ChatResponse, HealthResponse } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API_KEY = import.meta.env.VITE_API_KEY || "34567890";
+
+/**
+ * Build headers for API requests with Authorization header
+ *
+ * Supports API key authentication via Authorization header (Bearer token format).
+ * The backend also accepts x-api-key header as an alternative format.
+ *
+ * Expected format: Authorization: Bearer <api-key>
+ * Alternative format: x-api-key: <api-key>
+ */
+function buildHeaders(): HeadersInit {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  if (API_KEY) {
+    headers["Authorization"] = `Bearer ${API_KEY}`;
+  } else if (import.meta.env.DEV) {
+    // Only warn in development to avoid console spam in production
+    console.warn(
+      "VITE_API_KEY is not set. API requests may fail authentication. " +
+        "Set VITE_API_KEY in your .env file for authenticated requests."
+    );
+  }
+
+  return headers;
+}
 
 /**
  * Send a message to the chat API and get a response
@@ -10,15 +38,13 @@ export async function sendChatMessage(
   conversationHistory: Message[] = []
 ): Promise<ChatResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/chat`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/chat`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: buildHeaders(),
       body: JSON.stringify({
         message,
-        conversationHistory: conversationHistory.map((msg) => ({
-          sender: msg.sender,
+        history: conversationHistory.map((msg) => ({
+          role: msg.sender === "bot" ? "assistant" : "user", // ✅ Convert sender to role, and "bot" to "assistant"
           content: msg.content,
         })),
       }),
@@ -41,84 +67,6 @@ export async function sendChatMessage(
 }
 
 /**
- * Stream chat responses in real-time
- */
-export async function streamChatMessage(
-  message: string,
-  conversationHistory: Message[] = [],
-  onChunk: (text: string) => void,
-  onComplete: () => void,
-  onError: (error: string) => void
-): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/chat-stream`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        message,
-        conversationHistory: conversationHistory.map((msg) => ({
-          sender: msg.sender,
-          content: msg.content,
-        })),
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const reader = response.body?.getReader();
-    const decoder = new TextDecoder();
-
-    if (!reader) {
-      throw new Error("Response body is not readable");
-    }
-
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        onComplete();
-        break;
-      }
-
-      const chunk = decoder.decode(value);
-      const lines = chunk.split("\n");
-
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const data = line.slice(6);
-
-          if (data === "[DONE]") {
-            onComplete();
-            return;
-          }
-
-          try {
-            const parsed: StreamChunk = JSON.parse(data);
-            if (parsed.content) {
-              onChunk(parsed.content);
-            }
-            if (parsed.error) {
-              onError(parsed.error);
-              return;
-            }
-          } catch (e) {
-            // Skip invalid JSON
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Streaming Error:", error);
-    onError(error instanceof Error ? error.message : "Unknown error occurred");
-  }
-}
-
-/**
  * Check if the API is available with timeout
  * @param timeout - Timeout in milliseconds (default: 5000ms)
  * @returns Promise<boolean> - true if API is healthy, false otherwise
@@ -128,12 +76,10 @@ export async function checkAPIHealth(timeout: number = 5000): Promise<boolean> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    const response = await fetch(`${API_BASE_URL}/api/health`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/health`, {
       signal: controller.signal,
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: buildHeaders(),
     });
 
     clearTimeout(timeoutId);
