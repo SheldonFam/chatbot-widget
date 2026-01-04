@@ -4,6 +4,19 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_KEY = import.meta.env.VITE_API_KEY || "34567890";
 
 /**
+ * Custom error class for chat service errors
+ */
+export class ChatServiceError extends Error {
+  constructor(
+    message: string,
+    public originalError?: string
+  ) {
+    super(message);
+    this.name = "ChatServiceError";
+  }
+}
+
+/**
  * Build headers for API requests with Authorization header
  *
  * Supports API key authentication via Authorization header (Bearer token format).
@@ -63,6 +76,86 @@ export async function sendChatMessage(
       response: "",
       error: error instanceof Error ? error.message : "Unknown error occurred",
     };
+  }
+}
+
+/**
+ * Generate a streaming chat response
+ *
+ * Backend format: SSE with data: {"content":"..."}
+ *
+ * @param message - Current user message
+ * @param conversationHistory - Previous conversation history
+ * @returns Async generator yielding text chunks
+ * @throws ChatServiceError if generation fails
+ */
+export async function* sendStreamingChatMessage(
+  message: string,
+  conversationHistory: Message[] = []
+): AsyncGenerator<string, void, unknown> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/chat/stream`, {
+      method: "POST",
+      headers: buildHeaders(),
+      body: JSON.stringify({
+        message,
+        history: conversationHistory.map((msg) => ({
+          role: msg.sender === "bot" ? "assistant" : "user",
+          content: msg.content,
+        })),
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "Unknown error");
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+    }
+
+    if (!response.body) {
+      throw new Error("Response body is null");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Split by double newline (SSE message separator)
+        const messages = buffer.split("\n\n");
+        buffer = messages.pop() || ""; // Keep incomplete message
+
+        for (const message of messages) {
+          if (!message.trim() || !message.startsWith("data: ")) continue;
+
+          const jsonStr = message.slice(6).trim(); // Remove "data: "
+          if (!jsonStr) continue;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            if (parsed.content) {
+              yield parsed.content;
+            }
+          } catch {
+            // Skip invalid JSON
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  } catch (error) {
+    console.error("Chat streaming error:", error);
+    throw new ChatServiceError(
+      "Failed to generate streaming response",
+      error instanceof Error ? error.message : "Unknown error"
+    );
   }
 }
 

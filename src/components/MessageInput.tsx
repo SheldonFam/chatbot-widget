@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Send, X } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import { FileUpload } from "./FileUpload";
-import { sendChatMessage } from "../services/chatService";
+import { sendStreamingChatMessage, ChatServiceError } from "../services/chatService";
 
 interface MessageInputProps {
   theme: "light" | "dark";
@@ -92,31 +92,74 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       content: "",
       sender: "bot",
       isLoading: true,
+      isStreaming: false,
     });
 
     try {
-      // Get conversation history (last 10 messages for context)
-      const conversationHistory = messages.slice(-10);
+      // Get conversation history (exclude the message we just added and the loading message)
+      // Get last 10 messages before the current user message
+      const conversationHistory = messages
+        .filter((msg) => msg.id !== loadingMessageId) // Exclude loading message
+        .slice(-10);
 
-      // Send chat message and get response
-      const response = await sendChatMessage(userMsg, conversationHistory);
+      // Stream the response chunk by chunk
+      let fullResponse = "";
+      let hasReceivedContent = false;
 
-      if (response.success) {
+      for await (const chunk of sendStreamingChatMessage(userMsg, conversationHistory)) {
+        if (chunk) {
+          fullResponse += chunk;
+
+          // On first chunk with content, switch from loading to streaming
+          if (!hasReceivedContent && fullResponse.trim()) {
+            hasReceivedContent = true;
+            updateMessage(loadingMessageId, {
+              isLoading: false,
+              isStreaming: true,
+              content: fullResponse,
+            });
+          } else if (hasReceivedContent) {
+            // Update message content in real-time as chunks arrive
+            updateMessage(loadingMessageId, {
+              content: fullResponse,
+              isStreaming: true,
+            });
+          }
+        }
+      }
+
+      // Streaming complete
+      if (!hasReceivedContent) {
+        // No content received - show error message
         updateMessage(loadingMessageId, {
-          content: response.response,
+          content:
+            "I received your message but didn't generate a response. Please try again.",
           isLoading: false,
+          isStreaming: false,
         });
       } else {
+        // Final update - mark streaming as complete
         updateMessage(loadingMessageId, {
-          content: `Sorry, I encountered an error: ${response.error || "Unknown error"}`,
+          content: fullResponse,
           isLoading: false,
+          isStreaming: false,
         });
       }
     } catch (error) {
-      console.error("Chat error:", error);
+      console.error("Chat streaming error:", error);
+
+      // Handle ChatServiceError with detailed message
+      const errorMessage =
+        error instanceof ChatServiceError
+          ? error.originalError || error.message
+          : error instanceof Error
+            ? error.message
+            : "Unknown error occurred";
+
       updateMessage(loadingMessageId, {
-        content: "Sorry, I couldn't process your message. Please try again.",
+        content: `Sorry, I encountered an error: ${errorMessage}`,
         isLoading: false,
+        isStreaming: false,
       });
     } finally {
       setIsProcessing(false);
