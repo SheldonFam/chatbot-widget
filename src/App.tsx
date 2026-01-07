@@ -103,7 +103,7 @@ function App() {
                 File Upload
               </h3>
               <p className={`text-sm opacity-75 ${styles.cardSubtext}`}>
-                Upload PDF, DOCX, and TXT files with drag-and-drop support.
+                Upload PDF, DOCX, and TXT files by clicking the attachment icon.
               </p>
             </div>
 
@@ -266,7 +266,7 @@ function App() {
             <div className={`space-y-3 text-sm ${styles.instructionsText}`}>
               <p>• Click the chat bubble in the bottom-right corner to open the chat</p>
               <p>• Type messages and press Enter to send (Shift+Enter for new line)</p>
-              <p>• Upload files by clicking the attachment icon or dragging files</p>
+              <p>• Upload files by clicking the attachment icon</p>
               <p>• Rate bot responses with thumbs up/down buttons</p>
               <p>• Close the chat to see the feedback modal</p>
               <p>• All data is automatically saved to localStorage</p>

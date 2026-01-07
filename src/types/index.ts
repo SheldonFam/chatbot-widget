@@ -22,6 +22,9 @@ export interface UploadedFile {
   type: string;
   url?: string; // For preview purposes
   content?: string | ArrayBuffer; // For file content
+  fileUri?: string; // URI returned from backend after upload
+  isUploading?: boolean; // Upload status
+  uploadError?: string; // Upload error message
 }
 
 export interface MessageFeedback {
@@ -72,8 +75,8 @@ export interface ChatActions {
   setUploadedFiles: (files: UploadedFile[]) => void;
   clearUploadedFiles: () => void;
   submitChatFeedback: (feedback: ChatFeedback) => void;
-  loadFromStorage: () => void;
-  saveToStorage: () => void;
+  // Note: Storage is handled automatically by Zustand persist middleware
+  // No need for manual loadFromStorage/saveToStorage methods
 }
 
 // ============================================

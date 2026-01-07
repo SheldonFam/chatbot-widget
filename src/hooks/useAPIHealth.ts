@@ -1,9 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
-import { checkAPIHealth } from "../services/chatService";
+import { checkAPIHealth } from "../services/healthService";
 import { useChatStore } from "../store/useChatStore";
-
-const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
-const HEALTH_CHECK_RETRY_DELAY = 5000; // 5 seconds for retry after failure
+import { HEALTH_CHECK } from "../constants";
 
 /**
  * Custom hook to manage API health checks
@@ -45,7 +43,7 @@ export function useAPIHealth() {
         if (!isHealthy) {
           retryTimeoutRef.current = setTimeout(() => {
             performHealthCheck(true);
-          }, HEALTH_CHECK_RETRY_DELAY);
+          }, HEALTH_CHECK.RETRY_DELAY_MS);
         }
       } catch (error) {
         console.error("Health check error:", error);
@@ -55,7 +53,7 @@ export function useAPIHealth() {
         // Schedule retry on error
         retryTimeoutRef.current = setTimeout(() => {
           performHealthCheck(true);
-        }, HEALTH_CHECK_RETRY_DELAY);
+        }, HEALTH_CHECK.RETRY_DELAY_MS);
       } finally {
         isCheckingRef.current = false;
       }
@@ -89,7 +87,7 @@ export function useAPIHealth() {
     // Periodic checks
     intervalRef.current = setInterval(() => {
       performHealthCheckRef.current();
-    }, HEALTH_CHECK_INTERVAL);
+    }, HEALTH_CHECK.INTERVAL_MS);
 
     return () => {
       if (intervalRef.current) {

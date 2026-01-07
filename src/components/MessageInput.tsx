@@ -4,7 +4,10 @@ import { motion } from "framer-motion";
 import { Send, X } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import { FileUpload } from "./FileUpload";
-import { sendStreamingChatMessage, ChatServiceError } from "../services/chatService";
+import { sendStreamingChatMessage } from "../services/chatService";
+import { generateStreamingDocumentQA } from "../services/documentService";
+import { ChatServiceError } from "../services/api/client";
+import { CHAT, FILE_UPLOAD, UI } from "../constants";
 
 interface MessageInputProps {
   theme: "light" | "dark";
@@ -52,15 +55,24 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Check if files are ready (uploaded and have fileUri, or not PDF files)
+  const filesReady = uploadedFiles.every(
+    (file) => !file.isUploading && (file.fileUri || file.type !== "application/pdf")
+  );
+  const hasUploadErrors = uploadedFiles.some((file) => file.uploadError);
+
   const canSend =
-    (messageValue.trim().length > 0 || uploadedFiles.length > 0) && !isProcessing;
+    (messageValue.trim().length > 0 || uploadedFiles.length > 0) &&
+    !isProcessing &&
+    filesReady &&
+    !hasUploadErrors;
 
   /** 🧩 Resize dynamically when value changes */
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 80) + "px";
+    el.style.height = Math.min(el.scrollHeight, UI.TEXTAREA_MAX_HEIGHT_PX) + "px";
   }, [messageValue]);
 
   /** 🔧 Remove a single uploaded file */
@@ -75,14 +87,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
     setIsProcessing(true);
 
+    const userMsg = data.message.trim() || "📎 File(s) shared";
+    const filesToUpload = [...uploadedFiles];
+    const hasFiles = filesToUpload.length > 0;
+
+    // Mark files as uploading
+    if (hasFiles) {
+      setUploadedFiles(filesToUpload.map((file) => ({ ...file, isUploading: true })));
+    }
+
     // Add user message
     addMessage({
-      content: data.message.trim() || "📎 File(s) shared",
+      content: userMsg,
       sender: "user",
-      files: uploadedFiles.length > 0 ? uploadedFiles : undefined,
+      files: hasFiles ? filesToUpload : undefined,
     });
-
-    const userMsg = data.message.trim();
 
     reset();
     clearUploadedFiles();
@@ -97,40 +116,95 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
     try {
       // Get conversation history (exclude the message we just added and the loading message)
-      // Get last 10 messages before the current user message
       const conversationHistory = messages
         .filter((msg) => msg.id !== loadingMessageId) // Exclude loading message
-        .slice(-10);
+        .slice(-CHAT.MAX_HISTORY_MESSAGES);
 
-      // Stream the response chunk by chunk
       let fullResponse = "";
       let hasReceivedContent = false;
 
-      for await (const chunk of sendStreamingChatMessage(userMsg, conversationHistory)) {
-        if (chunk) {
-          fullResponse += chunk;
+      if (hasFiles) {
+        // Handle document Q&A flow
+        // Files should already be uploaded when selected (via FileUpload component)
+        const uploadedFileUris: string[] = [];
+        const uploadErrors: string[] = [];
 
-          // On first chunk with content, switch from loading to streaming
-          if (!hasReceivedContent && fullResponse.trim()) {
-            hasReceivedContent = true;
-            updateMessage(loadingMessageId, {
-              isLoading: false,
-              isStreaming: true,
-              content: fullResponse,
-            });
-          } else if (hasReceivedContent) {
-            // Update message content in real-time as chunks arrive
-            updateMessage(loadingMessageId, {
-              content: fullResponse,
-              isStreaming: true,
-            });
+        for (const file of filesToUpload) {
+          if (file.uploadError) {
+            uploadErrors.push(`${file.name}: ${file.uploadError}`);
+          } else if (file.fileUri) {
+            uploadedFileUris.push(file.fileUri);
+          } else if (file.isUploading) {
+            uploadErrors.push(`${file.name}: Still uploading, please wait...`);
+          } else {
+            uploadErrors.push(`${file.name}: Upload failed or not completed`);
+          }
+        }
+
+        if (uploadErrors.length > 0) {
+          throw new Error(`Upload issues: ${uploadErrors.join(", ")}`);
+        }
+
+        if (uploadedFileUris.length === 0) {
+          throw new Error("No files were successfully uploaded");
+        }
+
+        // Use the first file URI for document Q&A (backend may support multiple later)
+        const fileUri = uploadedFileUris[0];
+        const question = userMsg || "What is this document about?";
+
+        // Stream document Q&A response
+        for await (const chunk of generateStreamingDocumentQA(
+          fileUri,
+          question,
+          conversationHistory
+        )) {
+          if (chunk) {
+            fullResponse += chunk;
+
+            if (!hasReceivedContent && fullResponse.trim()) {
+              hasReceivedContent = true;
+              updateMessage(loadingMessageId, {
+                isLoading: false,
+                isStreaming: true,
+                content: fullResponse,
+              });
+            } else if (hasReceivedContent) {
+              updateMessage(loadingMessageId, {
+                content: fullResponse,
+                isStreaming: true,
+              });
+            }
+          }
+        }
+      } else {
+        // Regular chat flow
+        for await (const chunk of sendStreamingChatMessage(
+          userMsg,
+          conversationHistory
+        )) {
+          if (chunk) {
+            fullResponse += chunk;
+
+            if (!hasReceivedContent && fullResponse.trim()) {
+              hasReceivedContent = true;
+              updateMessage(loadingMessageId, {
+                isLoading: false,
+                isStreaming: true,
+                content: fullResponse,
+              });
+            } else if (hasReceivedContent) {
+              updateMessage(loadingMessageId, {
+                content: fullResponse,
+                isStreaming: true,
+              });
+            }
           }
         }
       }
 
       // Streaming complete
       if (!hasReceivedContent) {
-        // No content received - show error message
         updateMessage(loadingMessageId, {
           content:
             "I received your message but didn't generate a response. Please try again.",
@@ -138,7 +212,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           isStreaming: false,
         });
       } else {
-        // Final update - mark streaming as complete
         updateMessage(loadingMessageId, {
           content: fullResponse,
           isLoading: false,
@@ -148,7 +221,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     } catch (error) {
       console.error("Chat streaming error:", error);
 
-      // Handle ChatServiceError with detailed message
       const errorMessage =
         error instanceof ChatServiceError
           ? error.originalError || error.message
@@ -190,15 +262,32 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 key={file.id}
                 className={`flex items-center gap-2 px-2 py-1 rounded-md border text-sm ${
                   theme === "light"
-                    ? "bg-gray-100 border-gray-200 text-gray-700"
-                    : "bg-gray-700 border-gray-600 text-gray-200"
+                    ? file.uploadError
+                      ? "bg-red-50 border-red-200 text-red-700"
+                      : file.isUploading
+                        ? "bg-yellow-50 border-yellow-200 text-yellow-700"
+                        : "bg-gray-100 border-gray-200 text-gray-700"
+                    : file.uploadError
+                      ? "bg-red-900/20 border-red-800 text-red-400"
+                      : file.isUploading
+                        ? "bg-yellow-900/20 border-yellow-800 text-yellow-400"
+                        : "bg-gray-700 border-gray-600 text-gray-200"
                 }`}
               >
-                <span className="truncate max-w-[120px]">{file.name}</span>
+                <span className={`truncate max-w-[${UI.FILE_NAME_MAX_WIDTH_PX}px]`}>
+                  {file.name}
+                  {file.isUploading && " (uploading...)"}
+                </span>
+                {file.uploadError && (
+                  <span className="text-xs opacity-70" title={file.uploadError}>
+                    ⚠️
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => removeFile(file.id)}
                   className="hover:bg-gray-500 hover:bg-opacity-20 rounded-full p-1"
+                  disabled={file.isUploading}
                 >
                   <X size={12} />
                 </button>
@@ -220,7 +309,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               uploadedFiles={uploadedFiles}
               onFilesChange={setUploadedFiles}
               theme={theme}
-              disabled={uploadedFiles.length >= 3}
+              disabled={uploadedFiles.length >= FILE_UPLOAD.MAX_FILES || isProcessing}
             />
           )}
 

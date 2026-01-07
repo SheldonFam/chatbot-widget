@@ -48,10 +48,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     };
   }, [isOpen]);
 
-  // Scroll to bottom on new message
+  // Scroll to bottom on new message or when chat opens
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (isOpen && !isMinimized) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isOpen, isMinimized]);
 
   const handleClose = () => toggleChat();
 
