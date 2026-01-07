@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { checkAPIHealth } from "../services/chatService";
+import { checkAPIHealth } from "../services/healthService";
 import { useChatStore } from "../store/useChatStore";
 
 const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds

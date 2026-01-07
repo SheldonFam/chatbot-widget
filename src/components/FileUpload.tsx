@@ -1,7 +1,9 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Paperclip } from "lucide-react";
 import { UploadedFile } from "../types";
+import { uploadPDF } from "../services/documentService";
+import { ChatServiceError } from "../services/api/client";
 
 interface FileUploadProps {
   uploadedFiles: UploadedFile[];
@@ -25,6 +27,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   disabled = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const validateFile = (file: File): string | null => {
     if (!ALLOWED_TYPES.includes(file.type))
@@ -33,11 +36,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     return null;
   };
 
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null) => {
     if (!files) return;
     const newFiles: UploadedFile[] = [];
     const errors: string[] = [];
 
+    // First, validate all files
+    const validFiles: File[] = [];
     Array.from(files).forEach((file) => {
       if (uploadedFiles.length + newFiles.length >= MAX_FILES) {
         errors.push(`Maximum ${MAX_FILES} files allowed.`);
@@ -50,16 +55,67 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         return;
       }
 
+      // Create UploadedFile entry immediately (before upload)
       newFiles.push({
         id: crypto.randomUUID(),
         name: file.name,
         size: file.size,
         type: file.type,
+        isUploading: true,
       });
+      validFiles.push(file);
     });
 
     if (errors.length > 0) alert(errors.join("\n"));
-    if (newFiles.length > 0) onFilesChange([...uploadedFiles, ...newFiles]);
+    if (newFiles.length === 0) return;
+
+    // Add files to state immediately (with uploading status)
+    const updatedFiles = [...uploadedFiles, ...newFiles];
+    onFilesChange(updatedFiles);
+    setIsUploading(true);
+
+    // Upload each file
+    const uploadPromises = validFiles.map(async (file, index) => {
+      const fileIndex = uploadedFiles.length + index;
+      try {
+        // Only upload PDF files for now (backend expects PDF)
+        if (file.type === "application/pdf") {
+          const result = await uploadPDF(file);
+
+          // Update the file with fileUri
+          updatedFiles[fileIndex] = {
+            ...updatedFiles[fileIndex],
+            fileUri: result.fileUri,
+            isUploading: false,
+          };
+        } else {
+          // For non-PDF files, mark as uploaded but without fileUri
+          // You may want to handle DOCX/TXT differently based on backend support
+          updatedFiles[fileIndex] = {
+            ...updatedFiles[fileIndex],
+            isUploading: false,
+            uploadError: "Only PDF files are supported for document Q&A",
+          };
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof ChatServiceError
+            ? error.originalError || error.message
+            : error instanceof Error
+              ? error.message
+              : "Upload failed";
+
+        updatedFiles[fileIndex] = {
+          ...updatedFiles[fileIndex],
+          isUploading: false,
+          uploadError: errorMessage,
+        };
+      }
+    });
+
+    await Promise.all(uploadPromises);
+    onFilesChange([...updatedFiles]);
+    setIsUploading(false);
   };
 
   const themeClasses = {
@@ -71,12 +127,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     <>
       <motion.button
         type="button"
-        onClick={() => !disabled && fileInputRef.current?.click()}
+        onClick={() => !disabled && !isUploading && fileInputRef.current?.click()}
         className={`p-1.5 rounded-md flex items-center justify-center transition-all duration-200 ${
           themeClasses[theme]
-        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-        whileHover={!disabled ? { scale: 1.05, y: -1 } : {}}
-        whileTap={!disabled ? { scale: 0.95 } : {}}
+        } ${disabled || isUploading ? "opacity-50 cursor-not-allowed" : ""}`}
+        whileHover={!disabled && !isUploading ? { scale: 1.05, y: -1 } : {}}
+        whileTap={!disabled && !isUploading ? { scale: 0.95 } : {}}
+        title={isUploading ? "Uploading files..." : "Upload file"}
       >
         <Paperclip size={16} />
       </motion.button>
