@@ -4,12 +4,15 @@ A fully functional React chatbot widget with modern UI/UX features including fil
 
 ## 🚀 Features
 
-- **Interactive Chat Interface**: Real-time messaging with markdown support
-- **File Upload**: Support for PDF, DOCX, and TXT files with drag-and-drop
+- **Interactive Chat Interface**: Real-time streaming chat with markdown support
+- **Document Q&A**: Upload PDF files and ask questions about their content
+- **File Upload**: Support for PDF, DOCX, and TXT files (up to 3 files, 10MB each)
 - **Feedback System**: Upvote/downvote per message + overall chat rating
 - **Persistent Storage**: Messages and feedback saved to localStorage
+- **API Health Monitoring**: Automatic health checks with retry logic
 - **Customizable**: Light/dark themes, positioning, bot name configuration
 - **Smooth Animations**: Powered by Framer Motion
+- **Error Handling**: Graceful error boundaries and user-friendly error messages
 - **Responsive Design**: Works on desktop and mobile devices
 
 ## 🛠️ Tech Stack
@@ -38,51 +41,50 @@ cd chatbot-widget
 npm install
 ```
 
-3. Start the development server:
+3. Create a `.env` file in the root directory:
+
+```bash
+VITE_API_BASE_URL=your-api-base-url
+VITE_API_KEY=your-api-key
+```
+
+4. Start the development server:
 
 ```bash
 npm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:3000`
+5. Open your browser and navigate to `http://localhost:3000`
 
-## 🎯 Usage
+## ⚙️ Configuration
 
-### Basic Usage
+### Environment Variables
 
-```tsx
-import { ChatbotWidget } from "./components/ChatbotWidget";
+Create a `.env` file in the root directory with the following variables:
 
-function App() {
-  return (
-    <div>
-      {/* Your app content */}
-      <ChatbotWidget />
-    </div>
-  );
-}
+```bash
+VITE_API_BASE_URL=http://your-api-server.com  # Your backend API URL
+VITE_API_KEY=your-api-key                      # Optional: API key for authentication
 ```
 
-### Advanced Configuration
+### Backend API Requirements
 
-```tsx
-import { ChatbotWidget } from "./components/ChatbotWidget";
+The widget expects the following API endpoints:
 
-function App() {
-  return (
-    <div>
-      <ChatbotWidget
-        botName="My AI Assistant"
-        theme="dark"
-        position="bottom-left"
-        allowUpload={true}
-      />
-    </div>
-  );
-}
-```
+**Chat Endpoints:**
+- `POST /api/v1/chat` - Send a chat message and receive response
+- `POST /api/v1/chat/stream` - Streaming chat responses (SSE)
 
-## 🔧 Props
+**Document Endpoints:**
+- `POST /api/v1/documents/upload` - Upload PDF file
+- `POST /api/v1/documents/qa` - Ask questions about uploaded documents (supports streaming)
+
+**Health Check:**
+- `GET /api/v1/health` - API health status
+
+See [src/services/](src/services/) for detailed API interface definitions.
+
+## 🔧 Widget Configuration
 
 | Prop          | Type                              | Default          | Description                              |
 | ------------- | --------------------------------- | ---------------- | ---------------------------------------- |
@@ -99,21 +101,48 @@ src/
 │   ├── ChatBubble.tsx          # Floating chat button
 │   ├── ChatWindow.tsx          # Main chat interface
 │   ├── ChatbotWidget.tsx       # Main widget component
+│   ├── ErrorBoundary.tsx       # Error boundary wrapper
 │   ├── FeedbackButtons.tsx     # Message rating buttons
 │   ├── FeedbackModal.tsx       # Chat feedback form
 │   ├── FileUpload.tsx          # File upload component
 │   ├── MessageInput.tsx        # Message input with form
-│   └── MessageItem.tsx         # Individual message display
+│   ├── MessageItem.tsx         # Individual message display
+│   └── MessageWithFeedback.tsx # Memoized message wrapper
 ├── store/
-│   └── useChatStore.ts         # Zustand store for state management
+│   ├── slices/
+│   │   ├── feedbackSlice.ts   # Feedback state management
+│   │   ├── messageSlice.ts    # Message state management
+│   │   ├── uiSlice.ts         # UI state management
+│   │   └── uploadSlice.ts     # File upload state management
+│   └── useChatStore.ts        # Main Zustand store
+├── services/
+│   ├── api/
+│   │   └── client.ts          # API client and error handling
+│   ├── chatService.ts         # Chat API integration
+│   ├── documentService.ts     # Document Q&A and upload
+│   └── healthService.ts       # API health checks
+├── hooks/
+│   └── useAPIHealth.ts        # API health monitoring hook
+├── constants/
+│   └── index.ts               # Application constants
 ├── types/
-│   └── index.ts                # TypeScript interfaces
-├── App.tsx                     # Demo application
-├── main.tsx                    # Application entry point
-└── index.css                   # Global styles
+│   └── index.ts               # TypeScript interfaces
+├── App.tsx                    # Demo application
+├── main.tsx                   # Application entry point
+└── index.css                  # Global styles
 ```
 
 ## 🎨 Customization
+
+### Configuration Constants
+
+Application constants are centralized in [src/constants/index.ts](src/constants/index.ts):
+
+- **FILE_UPLOAD**: File upload limits and allowed types
+- **HEALTH_CHECK**: API health check intervals and retry delays
+- **STREAMING**: Streaming simulation delays and chunk sizes
+- **CHAT**: Chat configuration (e.g., max conversation history)
+- **UI**: UI-related constants (e.g., textarea height, file name width)
 
 ### Themes
 
@@ -129,43 +158,82 @@ Animations are handled by Framer Motion. You can customize animations by modifyi
 
 ## 📱 Features in Detail
 
+### Chat Interface
+
+- **Streaming Responses**: Real-time streaming of AI responses using Server-Sent Events (SSE)
+- **Markdown Support**: Bot messages support markdown formatting
+- **Conversation History**: Last 10 messages sent as context to the API
+- **Auto-scroll**: Automatically scrolls to the latest message
+- **Loading States**: Visual indicators for message processing
+
+### Document Q&A
+
+- Upload PDF files and ask questions about their content
+- Streaming responses for document-based queries
+- File upload status indicators (uploading, success, error)
+- Support for multiple file uploads (max 3 files)
+
 ### File Upload
 
-- Supports PDF, DOCX, and TXT files
-- Maximum 3 files, 10MB each
-- Drag-and-drop support
-- File preview with size display
-- Validation and error handling
+- **Supported Formats**: PDF, DOCX, and TXT files
+- **Limits**: Maximum 3 files, 10MB each
+- **Validation**: Client-side validation for file type and size
+- **Error Handling**: Clear error messages for upload failures
+- **Visual Feedback**: Upload progress and status indicators
 
 ### Feedback System
 
-- Thumbs up/down for individual messages
-- 5-star rating system for overall chat experience
-- Optional comment field
-- All feedback persisted to localStorage
+- **Message Rating**: Thumbs up/down for individual bot messages
+- **Overall Rating**: 5-star rating system when closing the chat
+- **Comments**: Optional text feedback field
+- **Persistence**: All feedback saved to localStorage
 
-### Message Features
+### API Health Monitoring
 
-- Markdown rendering for bot messages
-- Timestamp display
-- File attachment indicators
-- Smooth animations for new messages
-- Auto-scroll to latest message
+- **Automatic Checks**: Health check every 30 seconds while chat is open
+- **Retry Logic**: Faster retry (5 seconds) on health check failure
+- **Status Indicator**: Visual health status in chat header
+- **Error Recovery**: Graceful handling of API unavailability
 
 ### Keyboard Shortcuts
 
 - `Enter`: Send message
 - `Shift + Enter`: New line in message input
+- `Esc`: Close feedback modal
 
 ## 🔄 State Management
 
-The widget uses Zustand for state management with the following features:
+The widget uses Zustand with a modular slice pattern for state management:
 
-- **Messages**: Array of chat messages with metadata
-- **Feedback**: Message ratings and overall chat feedback
-- **UI State**: Chat open/closed, minimized state
-- **File Management**: Uploaded files and validation
-- **Persistence**: Automatic localStorage sync
+### Store Slices
+
+1. **Message Slice** ([messageSlice.ts](src/store/slices/messageSlice.ts))
+   - Add, update, and clear messages
+   - Handle streaming and loading states
+   - Message history management
+
+2. **Feedback Slice** ([feedbackSlice.ts](src/store/slices/feedbackSlice.ts))
+   - Per-message feedback (upvote/downvote)
+   - Overall chat feedback with ratings and comments
+   - Feedback persistence
+
+3. **UI Slice** ([uiSlice.ts](src/store/slices/uiSlice.ts))
+   - Chat open/closed state
+   - Minimized state
+   - API health status monitoring
+   - Last health check timestamp
+
+4. **Upload Slice** ([uploadSlice.ts](src/store/slices/uploadSlice.ts))
+   - File upload state management
+   - Uploaded files tracking
+   - Clear uploaded files
+
+### Persistence
+
+- Uses Zustand persist middleware
+- Stores messages, feedback, and chat feedback in localStorage
+- Custom merge logic for state hydration
+- Version management for migrations
 
 ## 🚀 Building for Production
 

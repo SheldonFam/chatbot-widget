@@ -5,6 +5,7 @@ import {
   buildFileUploadHeaders,
   ChatServiceError,
 } from "./api/client";
+import { STREAMING } from "../constants";
 
 /**
  * Upload a PDF file to the backend
@@ -141,10 +142,10 @@ export async function* generateStreamingDocumentQA(
 
       // Yield the response text character by character to simulate streaming
       const responseText = data.response;
-      for (let i = 0; i < responseText.length; i += 10) {
-        yield responseText.slice(i, i + 10);
+      for (let i = 0; i < responseText.length; i += STREAMING.SIMULATED_CHUNK_SIZE) {
+        yield responseText.slice(i, i + STREAMING.SIMULATED_CHUNK_SIZE);
         // Small delay to simulate streaming
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, STREAMING.SIMULATED_DELAY_MS));
       }
       return;
     }

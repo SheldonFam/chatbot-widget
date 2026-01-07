@@ -7,6 +7,7 @@ import { FileUpload } from "./FileUpload";
 import { sendStreamingChatMessage } from "../services/chatService";
 import { generateStreamingDocumentQA } from "../services/documentService";
 import { ChatServiceError } from "../services/api/client";
+import { CHAT, FILE_UPLOAD, UI } from "../constants";
 
 interface MessageInputProps {
   theme: "light" | "dark";
@@ -71,7 +72,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 80) + "px";
+    el.style.height = Math.min(el.scrollHeight, UI.TEXTAREA_MAX_HEIGHT_PX) + "px";
   }, [messageValue]);
 
   /** 🔧 Remove a single uploaded file */
@@ -117,7 +118,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       // Get conversation history (exclude the message we just added and the loading message)
       const conversationHistory = messages
         .filter((msg) => msg.id !== loadingMessageId) // Exclude loading message
-        .slice(-10);
+        .slice(-CHAT.MAX_HISTORY_MESSAGES);
 
       let fullResponse = "";
       let hasReceivedContent = false;
@@ -273,7 +274,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                         : "bg-gray-700 border-gray-600 text-gray-200"
                 }`}
               >
-                <span className="truncate max-w-[120px]">
+                <span className={`truncate max-w-[${UI.FILE_NAME_MAX_WIDTH_PX}px]`}>
                   {file.name}
                   {file.isUploading && " (uploading...)"}
                 </span>
@@ -308,7 +309,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               uploadedFiles={uploadedFiles}
               onFilesChange={setUploadedFiles}
               theme={theme}
-              disabled={uploadedFiles.length >= 3 || isProcessing}
+              disabled={uploadedFiles.length >= FILE_UPLOAD.MAX_FILES || isProcessing}
             />
           )}
 

@@ -4,6 +4,7 @@ import { Paperclip } from "lucide-react";
 import { UploadedFile } from "../types";
 import { uploadPDF } from "../services/documentService";
 import { ChatServiceError } from "../services/api/client";
+import { FILE_UPLOAD } from "../constants";
 
 interface FileUploadProps {
   uploadedFiles: UploadedFile[];
@@ -11,14 +12,6 @@ interface FileUploadProps {
   theme: "light" | "dark";
   disabled?: boolean;
 }
-
-const MAX_FILES = 3;
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_TYPES = [
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain",
-];
 
 export const FileUpload: React.FC<FileUploadProps> = ({
   uploadedFiles,
@@ -30,9 +23,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const [isUploading, setIsUploading] = useState(false);
 
   const validateFile = (file: File): string | null => {
-    if (!ALLOWED_TYPES.includes(file.type))
+    if (!(FILE_UPLOAD.ALLOWED_TYPES as readonly string[]).includes(file.type))
       return `Only PDF, DOCX, or TXT files are allowed.`;
-    if (file.size > MAX_FILE_SIZE) return `Max file size is 10 MB.`;
+    if (file.size > FILE_UPLOAD.MAX_SIZE_BYTES) return `Max file size is ${FILE_UPLOAD.MAX_SIZE_MB} MB.`;
     return null;
   };
 
@@ -44,8 +37,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     // First, validate all files
     const validFiles: File[] = [];
     Array.from(files).forEach((file) => {
-      if (uploadedFiles.length + newFiles.length >= MAX_FILES) {
-        errors.push(`Maximum ${MAX_FILES} files allowed.`);
+      if (uploadedFiles.length + newFiles.length >= FILE_UPLOAD.MAX_FILES) {
+        errors.push(`Maximum ${FILE_UPLOAD.MAX_FILES} files allowed.`);
         return;
       }
 
@@ -142,7 +135,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         ref={fileInputRef}
         type="file"
         multiple
-        accept=".pdf,.docx,.txt"
+        accept={FILE_UPLOAD.ALLOWED_EXTENSIONS}
         onChange={(e) => handleFiles(e.target.files)}
         className="hidden"
         disabled={disabled}
